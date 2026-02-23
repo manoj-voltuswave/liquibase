@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Express Server API",
-    "description": "Small Express server API",
+    "description": "Small Express server API. Multi-schema: pass schema per request where applicable.",
     "version": "1.0.0"
   },
   "servers": [{ "url": "/", "description": "Current server" }],
@@ -41,6 +41,40 @@
             "content": {
               "text/plain": {
                 "schema": { "type": "string", "example": "OK" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/db-status": {
+      "get": {
+        "summary": "Database status",
+        "description": "Checks MySQL RDS connection pool. Pass schema to ping a specific database/schema; omit for server-level ping.",
+        "operationId": "getDbStatus",
+        "parameters": [
+          {
+            "name": "schema",
+            "in": "query",
+            "required": false,
+            "description": "Database/schema name to ping (e.g. tenant_a). Omit to check server connectivity only.",
+            "schema": { "type": "string", "nullable": true }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "schema": { "type": "string", "nullable": true, "description": "Schema that was pinged, or null" },
+                    "ok": { "type": "boolean", "description": "Whether the DB/schema is reachable" },
+                    "latencyMs": { "type": "number", "description": "Round-trip time in milliseconds" },
+                    "error": { "type": "string", "description": "Error message if ok is false" }
+                  }
+                }
               }
             }
           }
