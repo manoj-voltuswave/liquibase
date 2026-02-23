@@ -119,6 +119,46 @@
           }
         }
       }
+    },
+    "/schema-restore": {
+      "post": {
+        "summary": "Create a new schema and apply a Liquibase changelog from S3",
+        "description": "Creates the given schema/database if it does not exist, downloads the changelog file from S3, runs Liquibase update against that schema, and returns basic status.",
+        "operationId": "restoreSchemaFromDump",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "schema": { "type": "string", "description": "New schema/database name to create and restore into" },
+                  "s3Key": { "type": "string", "description": "S3 object key of the Liquibase changelog file" }
+                },
+                "required": ["schema", "s3Key"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Schema created/restored successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "schema": { "type": "string" },
+                    "s3Key": { "type": "string" },
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

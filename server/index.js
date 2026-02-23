@@ -7,7 +7,7 @@ const fs = require('fs/promises');
 const path = require('path');
 
 const db = require('./utils/db');
-const { uploadFile } = require('./utils/s3');
+const { uploadFile, downloadFile } = require('./utils/s3');
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -34,9 +34,10 @@ app.get('/db-status', async (req, res) => {
   res.json({ schema, ...result });
 });
 
-function runLiquibase(args) {
+function runLiquibase(args, options = {}) {
   return new Promise((resolve, reject) => {
-    execFile('liquibase', args, { env: process.env }, (err, stdout, stderr) => {
+    const execOptions = { env: process.env, ...options };
+    execFile('liquibase', args, execOptions, (err, stdout, stderr) => {
       if (err) {
         err.stdout = stdout;
         err.stderr = stderr;
@@ -66,12 +67,14 @@ app.post('/schema-dump', async (req, res) => {
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   const safeSchema = schema.replace(/[^a-zA-Z0-9_]/g, '_');
   const fileName = `dump-${safeSchema}-${ts}.yaml`;
-
-  const outPath = path.join('/tmp', fileName);
+  const tmpDir = path.join(__dirname, 'tmp');
+  const outPath = path.join(tmpDir, fileName);
 
   const sourceUrl = `jdbc:mysql://${host}:${port}/${schema}`;
 
   try {
+    await fs.mkdir(tmpDir, { recursive: true });
+
     await runLiquibase([
       'generate-changelog',
       `--changelog-file=${outPath}`,
@@ -88,6 +91,71 @@ app.post('/schema-dump', async (req, res) => {
     return res.json({ ok: true, schema, s3Key });
   } catch (err) {
     await fs.unlink(outPath).catch(() => {});
+    return res.status(500).json({
+      ok: false,
+      error: err.message,
+      liquibaseStdout: err.stdout,
+      liquibaseStderr: err.stderr,
+    });
+  }
+});
+
+app.post('/schema-restore', async (req, res) => {
+  const { schema, s3Key } = req.body || {};
+
+  if (!schema || !s3Key) {
+    return res
+      .status(400)
+      .json({ ok: false, error: 'schema and s3Key are required' });
+  }
+
+  const host = process.env.DB_HOST;
+  const port = Number(process.env.DB_PORT) || 3306;
+  const user = process.env.DB_USER;
+  const password = process.env.DB_PASSWORD;
+
+  if (!host || !user) {
+    return res
+      .status(500)
+      .json({ ok: false, error: 'DB_HOST and DB_USER must be configured' });
+  }
+
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const safeSchema = schema.replace(/[^a-zA-Z0-9_]/g, '_');
+  const tmpDir = path.join(__dirname, 'tmp');
+  const tmpFile = path.join(tmpDir, `restore-${safeSchema}-${ts}.yaml`);
+
+  try {
+    // 1) Create schema/database if it does not exist
+    await db.query(`CREATE DATABASE IF NOT EXISTS \`${schema}\``);
+
+    // 2) Ensure tmp dir exists and download changelog from S3
+    await fs.mkdir(tmpDir, { recursive: true });
+    await downloadFile(s3Key, tmpFile);
+
+    const changelogFileName = path.basename(tmpFile);
+    await fs.access(tmpFile); // ensure file exists before calling Liquibase
+
+    const targetUrl = `jdbc:mysql://${host}:${port}/${schema}`;
+
+    // 3) Apply changelog: run with cwd=tmpDir and relative changelog filename so Liquibase finds the file
+    await runLiquibase(
+      [
+        'update',
+        `--changelog-file=${changelogFileName}`,
+        `--url=${targetUrl}`,
+        `--username=${user}`,
+        `--password=${password}`,
+        '--driver=com.mysql.cj.jdbc.Driver',
+      ],
+      { cwd: tmpDir },
+    );
+
+    await fs.unlink(tmpFile).catch(() => {});
+
+    return res.json({ ok: true, schema, s3Key });
+  } catch (err) {
+    await fs.unlink(tmpFile).catch(() => {});
     return res.status(500).json({
       ok: false,
       error: err.message,

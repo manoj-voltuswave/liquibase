@@ -47,6 +47,20 @@ async function getConnectionForSchema(schema) {
 }
 
 /**
+ * Run a parameterized query against the server (no default schema).
+ * Useful for CREATE DATABASE and other server-level commands.
+ * @param {string} sql
+ * @param {unknown[]} [params]
+ */
+async function query(sql, params = []) {
+  const p = await getPool();
+  if (!p) {
+    throw new Error('Database not configured: set DB_HOST, DB_USER (and DB_PASSWORD) in .env');
+  }
+  return p.execute(sql, params);
+}
+
+/**
  * Run a parameterized query against a specific schema.
  * @param {string} schema - Database/schema name
  * @param {string} sql - SQL with ? placeholders
@@ -101,6 +115,7 @@ async function close() {
 module.exports = {
   getPool,
   getConnectionForSchema,
+  query,
   queryForSchema,
   ping,
   close,
