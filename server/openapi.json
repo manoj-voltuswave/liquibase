@@ -80,6 +80,45 @@
           }
         }
       }
+    },
+    "/schema-dump": {
+      "post": {
+        "summary": "Create full Liquibase changelog for a schema and upload to S3",
+        "description": "Generates a full Liquibase changelog (generate-changelog) for the given schema, uploads the file to S3, and deletes the local file.",
+        "operationId": "createSchemaDump",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "schema": { "type": "string", "description": "Schema/database name to dump" }
+                },
+                "required": ["schema"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Dump created and uploaded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean" },
+                    "schema": { "type": "string" },
+                    "s3Key": { "type": "string", "description": "S3 object key where the changelog was stored" },
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

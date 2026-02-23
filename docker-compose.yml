@@ -1,25 +1,13 @@
-# POC: Liquibase CLI only — connects to RDS MySQL (no local MySQL container).
-# Set LB_SOURCE_URL, LB_TARGET_URL, LB_USERNAME, LB_PASSWORD in .env (see .env.example).
-# We use LB_* to avoid Liquibase 5.x reserved LIQUIBASE_* env vars.
+version: "3.9"
 
 services:
-  liquibase:
-    build: .
-    # Run as host user so generated files (e.g. schema-dump.xml) are writable in ./changelog.
-    # On Linux run first: export HOST_UID=$(id -u) HOST_GID=$(id -g)
-    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+  server:
+    # Build manually with: docker build -t express ./server
+    # This compose service only RUNS that image.
+    image: liquibase:0.1
+    container_name: express-liquibase-server
     env_file:
-      - .env
-    environment:
-      LB_SOURCE_URL: ${LB_SOURCE_URL}
-      LB_TARGET_URL: ${LB_TARGET_URL}
-      LB_USERNAME: ${LB_USERNAME}
-      LB_PASSWORD: ${LB_PASSWORD}
-    volumes:
-      - ./changelog:/liquibase/changelog
-      - ./scripts:/liquibase/scripts
-      - ./liquibase.properties:/liquibase/liquibase.properties
-    # Override image entrypoint so we can run shell scripts; the run argument is executed as sh -c "arg"
-    entrypoint: ["sh", "-c"]
-    # Examples: docker compose run --rm liquibase "sh ./scripts/01-generate-dump.sh"
-    #           docker compose run --rm liquibase "liquibase update --changelog-file=changelog/master.xml ..."
+      - ./server/.env
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
