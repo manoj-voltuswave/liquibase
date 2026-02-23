@@ -91,50 +91,75 @@ This POC shows how to use **Liquibase** (Docker free/community) with **MySQL** t
   - `scripts/02-apply-to-target.sh` – Apply dump (or main changelog) to target DB.  
   - `scripts/03-diff-changelog.sh` – Generate diff changelog (reference vs target).  
   - `scripts/04-apply-with-overrides.sh` – Apply a changelog with `-D` overrides.  
-- **Docker:** `Dockerfile` (Liquibase + MySQL driver), `docker-compose.yml` (MySQL + optional second DB/schema).
+- **Docker:** `Dockerfile` (Liquibase + MySQL driver), `docker-compose.yml` (Liquibase only; MySQL is **RDS**, not a container).
 
 ---
 
-## 5. Quick start (Docker)
+## 5. Using RDS MySQL
 
-If `docker login` tokens expire, see [DOCKER_LOGIN.md](DOCKER_LOGIN.md) for using a long-lived Personal Access Token.
+This POC is set up for **AWS RDS MySQL**. There is no MySQL Docker image; all commands connect to your RDS instance.
+
+1. **Create source and target databases on RDS** (if needed):
+   - In RDS, create two databases (e.g. `source_db`, `target_db`) or use existing schemas.
+   - Ensure the user in `LB_USERNAME` has privileges on both.
+
+2. **Configure connection via `.env`:**
+   ```bash
+   cp .env.example .env
+   # Edit .env: set LB_SOURCE_URL, LB_TARGET_URL, LB_USERNAME, LB_PASSWORD
+   ```
+   - **LB_SOURCE_URL** – JDBC URL for the **source** database (e.g. `jdbc:mysql://your-rds.region.rds.amazonaws.com:3306/source_db`).
+   - **LB_TARGET_URL** – JDBC URL for the **target** database (e.g. `jdbc:mysql://your-rds.region.rds.amazonaws.com:3306/target_db`).
+   - We use `LB_*` (not `LIQUIBASE_*`) so Liquibase 5.x does not treat them as reserved and cause errors.
+   - Use the same RDS host/port if both DBs are on the same instance; only the database name differs.
+
+3. **Network:** The machine running `docker compose run` (e.g. your laptop or CI) must be able to reach RDS (VPC, security group, or public access as appropriate).
+
+---
+
+## 6. Quick start (Docker + RDS)
 
 ```bash
-# Build Liquibase image with MySQL driver
+# 1) Configure RDS connection (required)
+cp .env.example .env
+# Edit .env with your RDS endpoint, DB names, username, password
+
+# 2) Build Liquibase image with MySQL driver
 docker compose build liquibase
 
-# Start MySQL (source and target DBs created via init script)
-docker compose up -d mysql
+# On Linux, so the container can write generated files (e.g. schema-dump.xml) into ./changelog, run once:
+# export HOST_UID=$(id -u) HOST_GID=$(id -g)
+# (Bash's UID is read-only, so we use HOST_UID/HOST_GID.)
 
-# 1) Seed source DB so we have something to dump
-docker compose run --rm liquibase sh -c "liquibase update --changelog-file=changelog/master.xml --url=\$LIQUIBASE_SOURCE_URL --username=\$LIQUIBASE_USERNAME --password=\$LIQUIBASE_PASSWORD --driver=com.mysql.cj.jdbc.Driver"
+# 3) Seed source DB on RDS so we have something to dump
+docker compose run --rm liquibase "liquibase update --changelog-file=changelog/master.xml --url=\$LB_SOURCE_URL --username=\$LB_USERNAME --password=\$LB_PASSWORD --driver=com.mysql.cj.jdbc.Driver"
 
-# 2) Generate dump from source DB
-docker compose run --rm liquibase sh -c "./scripts/01-generate-dump.sh"
+# 4) Generate dump from source DB (RDS)
+docker compose run --rm liquibase "sh ./scripts/01-generate-dump.sh"
 
-# 3) Apply dump to target DB (creates schema there)
-docker compose run --rm liquibase sh -c "./scripts/02-apply-to-target.sh"
+# 5) Apply dump to target DB (RDS)
+docker compose run --rm liquibase "sh ./scripts/02-apply-to-target.sh"
 
-# 4) (Optional) Change source, then generate diff between source and target
-docker compose run --rm liquibase sh -c "./scripts/03-diff-changelog.sh"
+# 6) (Optional) Change source, then generate diff between source and target
+docker compose run --rm liquibase "sh ./scripts/03-diff-changelog.sh"
 
-# 5) Apply diff to target with overrides
-docker compose run --rm liquibase sh -c "./scripts/04-apply-with-overrides.sh"
+# 7) Apply diff to target with overrides
+docker compose run --rm liquibase "sh ./scripts/04-apply-with-overrides.sh"
 # With custom overrides:
-docker compose run --rm liquibase sh -c "./scripts/04-apply-with-overrides.sh -Dconfig.default_env=prod -Dapp.schema=target_db"
+docker compose run --rm liquibase "sh ./scripts/04-apply-with-overrides.sh -Dconfig.default_env=prod -Dapp.schema=target_db"
 ```
 
 ---
 
-## 6. Inspecting transaction tracking
+## 7. Inspecting transaction tracking
 
-After running `update`, you can inspect what Liquibase recorded:
+After running `update`, you can inspect what Liquibase recorded (replace `target_db` with your target database name if different):
 
 - **List applied changes:**  
-  `liquibase history --url=jdbc:mysql://mysql:3306/target_db ...`
+  `docker compose run --rm liquibase "liquibase history --url=\$LB_TARGET_URL --username=\$LB_USERNAME --password=\$LB_PASSWORD --driver=com.mysql.cj.jdbc.Driver"`
 - **Show lock status:**  
-  `liquibase list-locks --url=...`
-- **Direct SQL (in MySQL):**
+  `docker compose run --rm liquibase "liquibase list-locks --url=\$LB_TARGET_URL --username=\$LB_USERNAME --password=\$LB_PASSWORD --driver=com.mysql.cj.jdbc.Driver"`
+- **Direct SQL (in RDS MySQL):**
   ```sql
   SELECT id, author, filename, dateexecuted, orderexecuted, exectype, description
   FROM target_db.DATABASECHANGELOG
@@ -145,7 +170,7 @@ After running `update`, you can inspect what Liquibase recorded:
 
 ---
 
-## 7. References
+## 8. References
 
 - [generate-changelog](https://docs.liquibase.com/commands/inspection/generate-changelog.html) – Create changelog from existing DB.  
 - [diff-changelog](https://docs.liquibase.com/commands/inspection/diff-changelog.html) – Compare two DBs (or snapshot vs DB) and output a changelog.  

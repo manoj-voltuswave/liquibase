@@ -7,6 +7,8 @@ FROM liquibase/liquibase:latest
 USER root
 # Add MySQL driver so generate-changelog, diff-changelog, and update work against MySQL
 RUN lpm add mysql --global
+# Allow running as arbitrary user (e.g. host user) so mounted ./changelog is writable
+RUN chmod -R a+rX /liquibase
 USER liquibase
 
 WORKDIR /liquibase

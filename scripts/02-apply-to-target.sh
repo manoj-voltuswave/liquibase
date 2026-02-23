@@ -4,9 +4,9 @@
 # Optional: pass overrides, e.g. ./scripts/02-apply-to-target.sh -Dconfig.default_env=staging
 
 set -e
-TARGET_URL="${LIQUIBASE_TARGET_URL:-jdbc:mysql://mysql:3306/target_db}"
-USER="${LIQUIBASE_USERNAME:-liquibase}"
-PASS="${LIQUIBASE_PASSWORD:-liquibase}"
+TARGET_URL="${LB_TARGET_URL:?Set LB_TARGET_URL (e.g. in .env)}"
+USER="${LB_USERNAME:?Set LB_USERNAME}"
+PASS="${LB_PASSWORD:?Set LB_PASSWORD}"
 
 liquibase update \
   --changelog-file=changelog/schema-dump.xml \

@@ -2,5 +2,6 @@
 changelog/schema-dump.xml
 changelog/diff.xml
 
-# Local overrides
+# Local overrides and secrets (RDS URLs and credentials)
 liquibase.properties.local
+.env

@@ -3,9 +3,9 @@
 # Run after applying seed to source: docker compose run --rm liquibase sh -c "./scripts/01-generate-dump.sh"
 
 set -e
-SOURCE_URL="${LIQUIBASE_SOURCE_URL:-jdbc:mysql://mysql:3306/source_db}"
-USER="${LIQUIBASE_USERNAME:-liquibase}"
-PASS="${LIQUIBASE_PASSWORD:-liquibase}"
+SOURCE_URL="${LB_SOURCE_URL:?Set LB_SOURCE_URL (e.g. in .env)}"
+USER="${LB_USERNAME:?Set LB_USERNAME}"
+PASS="${LB_PASSWORD:?Set LB_PASSWORD}"
 
 liquibase generate-changelog \
   --changelog-file=changelog/schema-dump.xml \

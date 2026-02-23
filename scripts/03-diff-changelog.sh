@@ -4,10 +4,10 @@
 # docker compose run --rm liquibase sh -c "./scripts/03-diff-changelog.sh"
 
 set -e
-REF_URL="${LIQUIBASE_SOURCE_URL:-jdbc:mysql://mysql:3306/source_db}"
-TARGET_URL="${LIQUIBASE_TARGET_URL:-jdbc:mysql://mysql:3306/target_db}"
-USER="${LIQUIBASE_USERNAME:-liquibase}"
-PASS="${LIQUIBASE_PASSWORD:-liquibase}"
+REF_URL="${LB_SOURCE_URL:?Set LB_SOURCE_URL}"
+TARGET_URL="${LB_TARGET_URL:?Set LB_TARGET_URL}"
+USER="${LB_USERNAME:?Set LB_USERNAME}"
+PASS="${LB_PASSWORD:?Set LB_PASSWORD}"
 
 liquibase diff-changelog \
   --changelog-file=changelog/diff.xml \

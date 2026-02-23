@@ -1,35 +1,25 @@
-# POC: One MySQL server with two databases (source_db, target_db) + Liquibase CLI.
-# Use scripts in ./scripts with: docker compose run --rm liquibase ./scripts/<script>.sh
+# POC: Liquibase CLI only — connects to RDS MySQL (no local MySQL container).
+# Set LB_SOURCE_URL, LB_TARGET_URL, LB_USERNAME, LB_PASSWORD in .env (see .env.example).
+# We use LB_* to avoid Liquibase 5.x reserved LIQUIBASE_* env vars.
 
 services:
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: source_db
-      MYSQL_USER: liquibase
-      MYSQL_PASSWORD: liquibase
-    ports:
-      - "3306:3306"
-    volumes:
-      - ./docker/mysql-init:/docker-entrypoint-initdb.d
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   liquibase:
     build: .
+    # Run as host user so generated files (e.g. schema-dump.xml) are writable in ./changelog.
+    # On Linux run first: export HOST_UID=$(id -u) HOST_GID=$(id -g)
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    env_file:
+      - .env
     environment:
-      LIQUIBASE_SOURCE_URL: jdbc:mysql://mysql:3306/source_db
-      LIQUIBASE_TARGET_URL: jdbc:mysql://mysql:3306/target_db
-      LIQUIBASE_USERNAME: liquibase
-      LIQUIBASE_PASSWORD: liquibase
+      LB_SOURCE_URL: ${LB_SOURCE_URL}
+      LB_TARGET_URL: ${LB_TARGET_URL}
+      LB_USERNAME: ${LB_USERNAME}
+      LB_PASSWORD: ${LB_PASSWORD}
     volumes:
       - ./changelog:/liquibase/changelog
       - ./scripts:/liquibase/scripts
       - ./liquibase.properties:/liquibase/liquibase.properties
-    depends_on:
-      mysql:
-        condition: service_healthy
+    # Override image entrypoint so we can run shell scripts; the run argument is executed as sh -c "arg"
+    entrypoint: ["sh", "-c"]
+    # Examples: docker compose run --rm liquibase "sh ./scripts/01-generate-dump.sh"
+    #           docker compose run --rm liquibase "liquibase update --changelog-file=changelog/master.xml ..."
