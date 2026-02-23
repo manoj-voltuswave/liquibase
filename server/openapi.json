@@ -1,0 +1,51 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Express Server API",
+    "description": "Small Express server API",
+    "version": "1.0.0"
+  },
+  "servers": [{ "url": "/", "description": "Current server" }],
+  "paths": {
+    "/": {
+      "get": {
+        "summary": "Root",
+        "description": "Returns a simple JSON response indicating the server is running",
+        "operationId": "getRoot",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Express server is running" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check",
+        "description": "Returns 200 OK if the server is healthy",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": { "type": "string", "example": "OK" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
