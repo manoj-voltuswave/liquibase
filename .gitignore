@@ -1,0 +1,6 @@
+# Generated changelogs (recreate with scripts)
+changelog/schema-dump.xml
+changelog/diff.xml
+
+# Local overrides
+liquibase.properties.local

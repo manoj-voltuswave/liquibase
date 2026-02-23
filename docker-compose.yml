@@ -1,0 +1,35 @@
+# POC: One MySQL server with two databases (source_db, target_db) + Liquibase CLI.
+# Use scripts in ./scripts with: docker compose run --rm liquibase ./scripts/<script>.sh
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: source_db
+      MYSQL_USER: liquibase
+      MYSQL_PASSWORD: liquibase
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docker/mysql-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  liquibase:
+    build: .
+    environment:
+      LIQUIBASE_SOURCE_URL: jdbc:mysql://mysql:3306/source_db
+      LIQUIBASE_TARGET_URL: jdbc:mysql://mysql:3306/target_db
+      LIQUIBASE_USERNAME: liquibase
+      LIQUIBASE_PASSWORD: liquibase
+    volumes:
+      - ./changelog:/liquibase/changelog
+      - ./scripts:/liquibase/scripts
+      - ./liquibase.properties:/liquibase/liquibase.properties
+    depends_on:
+      mysql:
+        condition: service_healthy

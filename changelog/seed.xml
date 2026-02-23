@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        https://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Demo: property for override. Override at runtime with -Dapp.schema=my_schema -->
+    <property name="app.schema" value="source_db" dbms="mysql"/>
+    <property name="config.default_env" value="dev"/>
+
+    <changeSet id="seed-1" author="poc">
+        <comment>Demo table for POC; app.schema can be overridden at apply time.</comment>
+        <createTable tableName="app_config">
+            <column name="id" type="INT" autoIncrement="true">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="config_key" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="config_value" type="VARCHAR(500)"/>
+            <column name="env" type="VARCHAR(64)" defaultValue="${config.default_env}"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="seed-2" author="poc">
+        <createTable tableName="audit_log">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true"/>
+            </column>
+            <column name="table_name" type="VARCHAR(255)"/>
+            <column name="row_id" type="VARCHAR(64)"/>
+            <column name="action" type="VARCHAR(32)"/>
+            <column name="changed_at" type="DATETIME" defaultValueComputed="CURRENT_TIMESTAMP"/>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="seed-3" author="poc">
+        <insert tableName="app_config">
+            <column name="config_key" value="env"/>
+            <column name="config_value" value="${config.default_env}"/>
+            <column name="env" value="${config.default_env}"/>
+        </insert>
+    </changeSet>
+</databaseChangeLog>
